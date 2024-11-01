@@ -1,6 +1,7 @@
 "use client";
 import './globals.css';
 import { useState, useEffect, useRef } from 'react';
+import axios from 'axios';
 import Image from 'next/image'; // Importando o componente Image
 import Logo from '../assets/logo.png'; // Certifique-se de que a imagem esteja no caminho correto
 
@@ -10,16 +11,16 @@ export default function Home() {
   const [consoleOutput, setConsoleOutput] = useState(''); // Saída do console
   const [waterFlowing, setWaterFlowing] = useState(false); // Indicador de fluxo de água
   const [connection, setConnection] = useState(false);
+  const [gate, setGate] = useState(false);
 
-  const consoleEndRef = useRef(null); // Referência para o final do console
+  const consoleEndRef = useRef<HTMLDivElement>(null); // Referência para o final do console
 
   // Função para buscar dados do servidor
   const fetchData = async () => {
     try {
-      const response = await fetch('http://localhost:5000/api/data'); // Endpoint do servidor
-      const data = await response.json();
+      const response = await axios.get('http://localhost:5000/api/data'); // Endpoint do servidor
+      const data = response.data;
 
-      // Verifique se 'unoData' é um número antes de usá-lo
       if (data.unoData !== null) {
         setFlowRate(data.unoData);
         setServoPosition(data.unoData);
@@ -39,6 +40,30 @@ export default function Home() {
       }
     } catch (error) {
       console.error('Erro ao buscar dados:', error);
+    }
+  };
+
+  // Função para alternar estado da comporta e enviar a requisição ao servidor
+  const toggleGate = async () => {
+    try {
+      const action = gate ? 'close' : 'open'; // Define a ação com base no estado atual
+      const response = await axios.post('http://localhost:5000/api/gate', {
+        data: action,
+      }, {
+        headers: {
+          'Content-Type': 'application/json'
+        }
+      });
+
+      if (response.status === 200) {
+        setGate(!gate); // Atualiza o estado apenas após confirmação do servidor
+        
+        // Adiciona comando ao console
+        const currentTime = new Date().toLocaleTimeString();
+        setConsoleOutput((prev) => `${prev}\n[${currentTime}] Comando: ${gate ? 'Fechar' : 'Abrir'} comportas`);
+      }
+    } catch (error) {
+      console.error('Erro ao alterar estado da comporta:', error);
     }
   };
 
@@ -110,17 +135,34 @@ export default function Home() {
               <h1 className={`text-3xl font-bold mb-0 ${connection ? 'text-green-600' : 'text-red-600'}`}>{connection ? 'Conectado' : 'Não conectado'}</h1>
             </div>
             <h2 className="text-xl mt-7">Informações:</h2>
-            <p>Porta conectada: {connection ? 'COM3' : '-'}</p>
+            <p>Porta conectada: {connection ? 'COM6' : '-'}</p>
             <p>BaudRate: {connection ? '9600' : '-'}</p>
           </div>
         </section>
-        <section className='flex flex-col items-center border-r-2 border-gray-400'>
-          <div className="mb-8 w-3/4 mt-10">
+        <section className='flex justify-center gap-10 items-center border-r-2 border-gray-400'>
+          <div className="mb-8 w-3/5 mt-10">
             <h2 className="text-xl">Console:</h2>
             <pre className="bg-gray-200 p-4 rounded border border-gray-300 h-48 overflow-y-auto">
               {consoleOutput}
-              <div ref={consoleEndRef} /> {/* Referência ao final do console */}
+              <div ref={consoleEndRef} />
             </pre>
+          </div>
+          <div className='flex flex-col items-center gap-6'>
+            <div className='flex items-center'>
+              <i className={`material-icons mr-2 transition duration-300 ${gate ? 'text-green-600' : 'text-red-600'}`}>
+                {gate ? 'opacity' : 'block'}
+              </i>
+              <h2 className={`text-xl font-bold mb-0 transition duration-300 ${gate ? 'text-green-600' : 'text-red-600'}`}>{gate ? 'Comportas abertas' : 'Comportas fechadas'}</h2>
+            </div> 
+            <button
+              onClick={toggleGate} 
+              className={`p-5 rounded-lg border-2 transition duration-300 ${gate
+                  ? 'bg-red-200 border-red-800 hover:bg-red-400 hover:text-white'  
+                  : 'bg-green-200 border-green-800 hover:bg-green-400 hover:text-white'        
+                }`}
+            >
+              {gate ? 'Fechar comportas' : 'Abrir comportas'}
+            </button>
           </div>
         </section>
         <section className='flex items-center justify-center'>
